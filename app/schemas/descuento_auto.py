@@ -47,25 +47,3 @@ class ConfiguracionPatch(BaseModel):
     liquidacion_todo_stock: Optional[ConfigEstadoLogica] = None
     liquidacion_agresiva: Optional[ConfigEstadoLogica] = None
     liquidacion_suave: Optional[ConfigEstadoLogica] = None
-
-
-class ProductoAvax(BaseModel):
-    """Modelo completo de producto para enviar a AVAX"""
-    nombre: str
-    id_marca: str
-    id_genero: str
-    id_tipo_producto: str
-    valid_web: bool
-    retail_val: bool
-    retail_mto: float
-    id_esq_costo: str
-    id_descuento: str
-    generos: List[str] = []
-    productos_listas_precios: List[str] = []
-    penalizacion_orden: Optional[str] = None
-    id_subtipo_producto: Optional[str] = None
-    ids_conjunto_categoria: List[int] = []
-    ids_silueta: List[int] = []
-    categorias: List[str] = []
-    descuentos_automaticos: Optional[bool] = None
-    ult_actualizacion_descuento_automatico: Optional[date] = None

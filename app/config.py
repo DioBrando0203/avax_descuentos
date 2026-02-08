@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     ZAP_TOKEN: str
 
     # URLs base
-    AVAX_BASE_URL: str = "https://api.avax.pe/v1"
+    #AVAX_BASE_URL=https://api.avax.com
+    AVAX_BASE_URL: str = "http://127.0.0.1:5000/v1"
     ZAP_BASE_URL: str = "https://sap-a.back.ngrok.pizza"
 
     # Timer entre requests

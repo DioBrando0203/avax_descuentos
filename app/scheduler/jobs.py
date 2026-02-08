@@ -6,26 +6,16 @@ from apscheduler.triggers.cron import CronTrigger
 from app.config import get_settings
 from app.services.zap_client import zap_client
 from app.services.avax_client import avax_client
-from app.services.descuentos import descuentos_service
+from app.services.descuento_auto import descuentos_service
 from app.routes.descuento_auto_routes import get_configuracion_actual
-from app.models.schemas import EstadoLogica
+from app.schemas.descuento_auto import EstadoLogica
+from app.schemas.respuestas_descuento import RespBatch
 
 settings = get_settings()
 scheduler = AsyncIOScheduler()
 
 
-async def procesar_descuentos_automaticos() -> dict:
-    """
-    Proceso principal que corre a las 5 AM.
-
-    1. Obtiene datos de churn de ZAP
-    2. Evalúa cada producto según el estado lógico activo
-    3. Modifica productos que cumplen condiciones vía AVAX
-    4. Gestiona categoría Liquidación automáticamente
-    5. Si cambia id_esq_costo, gatilla actualizar_precio (con timer 3s)
-
-    Retorna dict con resumen y lista de productos modificados.
-    """
+async def procesar_descuentos_automaticos() -> RespBatch:
     print(f"[{datetime.now()}] Iniciando proceso de descuentos automáticos...")
 
     resultado = {
@@ -97,7 +87,8 @@ async def procesar_descuentos_automaticos() -> dict:
                 resultado_avax = await avax_client.actualizar_descuento(
                     cod_prod=cod_prod,
                     nuevo_descuento=evaluacion["nuevo_descuento"],
-                    nuevo_esq_costo=evaluacion["nuevo_esq_costo"]
+                    nuevo_esq_costo=evaluacion["nuevo_esq_costo"],
+                    producto_actual=producto_avax,  # Reutiliza GET previo
                 )
                 resultado["productos_modificados"] += 1
                 resultado["detalle_modificados"].append({
@@ -139,7 +130,7 @@ async def procesar_descuentos_automaticos() -> dict:
         print(f"[{datetime.now()}] Error en proceso: {e}")
         resultado["error_general"] = str(e)
 
-    return resultado
+    return RespBatch(**resultado)
 
 
 def setup_scheduler():

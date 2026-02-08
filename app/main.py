@@ -7,7 +7,6 @@ from app.scheduler.jobs import scheduler, setup_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manejo del ciclo de vida de la aplicación"""
     setup_scheduler()
     scheduler.start()
     print("Aplicación iniciada - Scheduler corriendo")
