@@ -127,7 +127,7 @@ class AvaxClient:
             "id_marca": producto.get("id_marca"),
             "id_genero": producto.get("id_genero"),
             "id_tipo_producto": producto.get("id_tipo_producto"),
-            "valid_web": producto.get("valid_web"),
+            "valid_web": False,
             "retail_val": producto.get("retail_val"),
             "retail_mto": producto.get("retail_mto"),
             "id_esq_costo": esq_costo_final,

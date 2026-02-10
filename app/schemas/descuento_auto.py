@@ -1,6 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime, date
 from enum import Enum
 
 
@@ -47,3 +46,8 @@ class ConfiguracionPatch(BaseModel):
     liquidacion_todo_stock: Optional[ConfigEstadoLogica] = None
     liquidacion_agresiva: Optional[ConfigEstadoLogica] = None
     liquidacion_suave: Optional[ConfigEstadoLogica] = None
+
+
+class ProcesarProductosRequest(BaseModel):
+    productos: List[str] = Field(min_length=1)
+    estado: Optional[EstadoLogica] = None

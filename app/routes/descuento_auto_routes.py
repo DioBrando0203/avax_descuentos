@@ -1,18 +1,24 @@
-from fastapi import APIRouter, Path, Query
+import httpx
+from fastapi import APIRouter, HTTPException, Path, Query
 from typing import Optional
-from app.schemas.descuento_auto import ConfiguracionGeneral, ConfiguracionPatch, EstadoLogica
+from app.schemas.descuento_auto import (
+    ConfiguracionGeneral,
+    ConfiguracionPatch,
+    EstadoLogica,
+    ProcesarProductosRequest,
+)
 from app.schemas.respuestas_descuento import (
     RespAplicado,
     RespErrorValidacion,
     RespExcluido,
     RespNoApto,
     RespNoEncontrado,
-    RespBatch,
+    RespProcesarProductos,
 )
 
 router = APIRouter(tags=["Entregables"])
 
-# Estado en memoria (en producción usar BD o Redis)
+# Estado en memoria 
 configuracion_actual = ConfiguracionGeneral()
 
 
@@ -54,12 +60,28 @@ async def patch_configuracion(updates: ConfiguracionPatch):
 @router.post(
     "/ejecutar-proceso",
     summary="Ejecutar proceso batch manualmente",
-    response_model=RespBatch,
+    response_model=RespProcesarProductos,
 )
 async def ejecutar_proceso_manual():
     from app.scheduler.jobs import procesar_descuentos_automaticos
     resultado = await procesar_descuentos_automaticos()
     return resultado
+
+
+@router.post(
+    "/procesar/productos",
+    summary="Procesar multiples productos",
+    response_model=RespProcesarProductos,
+)
+async def procesar_productos(payload: ProcesarProductosRequest):
+    from app.services.descuento_auto.descuento_auto import (
+        procesar_productos as procesar_productos_service,
+    )
+
+    try:
+        return await procesar_productos_service(payload.productos, payload.estado)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post(
@@ -71,15 +93,28 @@ async def procesar_producto(
     cod_prod: str = Path(description="Código del producto (IF6463)"),
     estado: Optional[EstadoLogica] = Query(
         default=None,
-        description="Estado lógico a usar."
+        description="Estado logico a usar."
     )
 ):
 
-    from app.services.descuento_auto import procesar_producto as procesar_producto_service
+    from app.services.descuento_auto.descuento_auto import procesar_producto as procesar_producto_service
     try:
         return await procesar_producto_service(cod_prod, estado)
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"AVAX devolvió {e.response.status_code}: {e.response.text}",
+        ) from e
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"No se pudo conectar con AVAX: {str(e)}",
+        ) from e
     except Exception as e:
-        return {"status": "error", "mensaje": str(e)}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error procesando producto {cod_prod}: {str(e)}",
+        ) from e
 
 
 def get_configuracion_actual() -> ConfiguracionGeneral:

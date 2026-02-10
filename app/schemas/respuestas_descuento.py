@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 from pydantic import BaseModel
 
 
@@ -72,29 +72,28 @@ class RespAplicado(BaseModel):
     mensaje: str
 
 
-class DetalleModificado(BaseModel):
-    cod_prod: str
-    descuento_anterior: str
-    descuento_nuevo: str
-    esq_costo_nuevo: Optional[str] = None
-    categoria_liquidacion_agregada: bool = False
-    datos_zap: DatosZap
-    datos_avax: DatosAvax
-
-
 class DetalleError(BaseModel):
     cod_prod: Optional[str] = None
     error: str
 
 
-class RespBatch(BaseModel):
+class RespProcesarProductos(BaseModel):
     estado_ejecutado: Optional[str] = None
     umbrales_usados: Optional[Umbrales] = None
     productos_evaluados: int = 0
     productos_modificados: int = 0
     productos_no_aptos: int = 0
     productos_excluidos: int = 0
+    productos_no_encontrados: int = 0
     errores: int = 0
-    detalle_modificados: list[DetalleModificado] = []
-    detalle_errores: list[DetalleError] = []
     error_general: Optional[str] = None
+    detalle_resultados: list[
+        Union[
+            RespAplicado,
+            RespNoApto,
+            RespErrorValidacion,
+            RespExcluido,
+            RespNoEncontrado,
+            DetalleError,
+        ]
+    ] = []
