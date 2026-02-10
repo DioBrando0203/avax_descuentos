@@ -56,12 +56,11 @@ class DescuentosService:
         last_import_age = producto.get("last_import_age_max", 0) or 0
         if days_since_sale is None or days_since_sale == 0:
             days_since_sale = last_import_age
-        # Ruta 2 requiere validar ambos umbrales:
-        # days_since_last_sale_min y ult_modificacion_descuento.
-        # Si no hay fecha de ultima actualizacion, no puede habilitar la ruta 2.
-        if not ult_actualizacion_descuento:
-            return False
-        dias_desde_modificacion = (date.today() - ult_actualizacion_descuento).days
+        # Si no hay fecha de ultima actualizacion, se considera 0 dias.
+        if ult_actualizacion_descuento:
+            dias_desde_modificacion = (date.today() - ult_actualizacion_descuento).days
+        else:
+            dias_desde_modificacion = 0
         cumple_days_sale = days_since_sale > config.days_since_last_sale_min
         cumple_dias_modificacion = dias_desde_modificacion > config.ult_modificacion_descuento
         return cumple_days_sale and cumple_dias_modificacion
@@ -116,7 +115,7 @@ class DescuentosService:
     @staticmethod
     def calcular_dias_desde_modificacion(ult_actualizacion: date) -> int:
         if not ult_actualizacion:
-            return None
+            return 0
         return (date.today() - ult_actualizacion).days
 
     @staticmethod

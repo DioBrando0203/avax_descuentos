@@ -40,6 +40,7 @@ def armar_resp_no_apto(
             else None,
             dias_desde_modificacion=evaluacion["dias_desde_mod"],
             descuentos_automaticos=producto_avax.get("descuentos_automaticos"),
+            esq_costo_actual=evaluacion["id_esq_costo_actual"],
         ),
         mensaje="No cumple condiciones para subir descuento",
     )
