@@ -161,7 +161,7 @@ class AvaxClient:
 
         # 8. Si cambió id_esq_costo, gatillar actualización de precios
         if nuevo_esq_costo and nuevo_esq_costo != esq_costo_actual:
-            await asyncio.sleep(5)
+            await asyncio.sleep(self.settings.REQUEST_DELAY)
             await self.actualizar_precio(cod_prod)
 
         # 9. Retornar resultado con info adicional

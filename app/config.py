@@ -11,10 +11,10 @@ class Settings(BaseSettings):
     # URLs base
     #AVAX_BASE_URL=https://api.avax.com
     AVAX_BASE_URL: str = "http://127.0.0.1:5000/v1"
-    ZAP_BASE_URL: str = "https://sap-a.back.ngrok.pizza"
+    ZAP_BASE_URL: str = "https://zapi.avax.pe"
 
     # Timer entre requests
-    REQUEST_DELAY: int = 5
+    REQUEST_DELAY: int = 3
 
     # Scheduler
     SCHEDULER_HOUR: int = 5

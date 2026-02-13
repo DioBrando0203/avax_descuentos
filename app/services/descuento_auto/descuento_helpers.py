@@ -1,10 +1,15 @@
+from typing import Optional
+
 from app.schemas.descuento_auto import ConfigEstadoLogica, EstadoLogica
 from app.schemas.respuestas_descuento import (
+    DetalleError,
     DatosAvax,
     DatosZap,
     RespAplicado,
     RespErrorValidacion,
+    RespExcluido,
     RespNoApto,
+    RespNoEncontrado,
     Umbrales,
 )
 
@@ -14,6 +19,38 @@ def build_umbrales(config_estado: ConfigEstadoLogica) -> Umbrales:
         last_import_age_max=config_estado.last_import_age_max,
         days_since_last_sale_min=config_estado.days_since_last_sale_min,
         ult_modificacion_descuento=config_estado.ult_modificacion_descuento,
+    )
+
+
+def armar_resp_no_encontrado(
+    cod_prod: str,
+    mensaje: str = "Producto no encontrado en ZAP (churn)",
+) -> RespNoEncontrado:
+    return RespNoEncontrado(
+        cod_prod=cod_prod,
+        mensaje=mensaje,
+    )
+
+
+def armar_resp_excluido(
+    cod_prod: str,
+    descuentos_automaticos: bool = False,
+    mensaje: str = "Producto tiene descuentos_automaticos = false",
+) -> RespExcluido:
+    return RespExcluido(
+        cod_prod=cod_prod,
+        descuentos_automaticos=descuentos_automaticos,
+        mensaje=mensaje,
+    )
+
+
+def armar_detalle_error(
+    cod_prod: Optional[str],
+    error: str,
+) -> DetalleError:
+    return DetalleError(
+        cod_prod=cod_prod,
+        error=error,
     )
 
 
