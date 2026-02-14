@@ -54,6 +54,7 @@ class DescuentosService:
     ) -> bool:
         days_since_sale = producto.get("days_since_last_sale_min")
         last_import_age = producto.get("last_import_age_max", 0) or 0
+        # Solo para ruta 2: si no hay ventas reportadas, usar last_import_age_max.
         if days_since_sale is None or days_since_sale == 0:
             days_since_sale = last_import_age
         # Si no hay fecha de ultima actualizacion, se considera 0 dias.
@@ -164,14 +165,21 @@ class DescuentosService:
             return resultado
         ruta_usada = "ruta1_last_import" if cumple_ruta1 else "ruta2_normal"
         resultado["ruta_usada"] = ruta_usada
-        nuevo_descuento = DescuentosService.obtener_siguiente_nivel(id_descuento_actual)
-        descuento_minimo = DescuentosService.obtener_descuento_minimo(estado_logica)
-        if id_descuento_actual == "Sin descuento" and descuento_minimo == "PUSH1":
-            nuevo_descuento = "PUSH1"
         nuevo_esq_costo = DescuentosService.determinar_nuevo_esq_costo(
-            id_esq_costo_actual, nuevo_descuento, estado_logica, cumple_ruta1
+            id_esq_costo_actual, None, estado_logica, cumple_ruta1
         )
         esq_costo_final = nuevo_esq_costo or id_esq_costo_actual
+        descuento_minimo = DescuentosService.obtener_descuento_minimo(estado_logica)
+
+        if ruta_usada == "ruta1_last_import" and esq_costo_final in ["LIQ_20M", "LIQ_30M"]:
+            # Ruta 1: si entra a esquema LIQ, el descuento siempre queda en PUSH1.
+            nuevo_descuento = "PUSH1"
+        else:
+            # Ruta 2: mantener progresion normal del descuento paso a paso.
+            nuevo_descuento = DescuentosService.obtener_siguiente_nivel(id_descuento_actual)
+            if id_descuento_actual == "Sin descuento" and descuento_minimo == "PUSH1":
+                nuevo_descuento = "PUSH1"
+
         if not DescuentosService.validar_regla_liquidacion(esq_costo_final, nuevo_descuento):
             resultado["razon"] = "viola_regla_liquidacion"
             return resultado
