@@ -1,12 +1,16 @@
-import httpx
 import asyncio
 from datetime import date
-from typing import Optional, List
+from typing import List, Optional
+
+import httpx
+
 from app.config import get_settings
 
 
 class AvaxClient:
     CATEGORIA_LIQUIDACION = "Liquidacion"
+    ESQ_COSTO_LIQUIDACION = {"LIQ_20M", "LIQ_30M"}
+    DESCUENTOS_PUSH = {"PUSH1", "PUSH2"}
 
     def __init__(self):
         self.settings = get_settings()
@@ -19,7 +23,7 @@ class AvaxClient:
             response = await client.get(
                 url,
                 headers={"token": self.settings.AVAX_TOKEN},
-                timeout=30.0
+                timeout=30.0,
             )
             response.raise_for_status()
             data = response.json()
@@ -27,32 +31,39 @@ class AvaxClient:
 
     async def actualizar_precio(self, cod_prod: str) -> dict:
         url = f"{self.base_url}/empleados/productos/{cod_prod}/actions/actualizar_precio"
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 url,
                 headers={"token": self.settings.AVAX_TOKEN},
-                timeout=30.0
+                timeout=30.0,
             )
             response.raise_for_status()
             return response.json()
 
     async def actualizar_categorias(self, cod_prod: str, categorias: List[str]) -> dict:
         url = f"{self.base_url}/empleados/categorias_productos/{cod_prod}"
-        
-        payload = {
-            "id_categorias": categorias
-        }
-        
+
+        payload = {"id_categorias": categorias}
+
         async with httpx.AsyncClient() as client:
             response = await client.put(
                 url,
                 json=payload,
                 headers={"token": self.settings.AVAX_TOKEN},
-                timeout=30.0
+                timeout=30.0,
             )
             response.raise_for_status()
             return response.json()
+
+    async def _esperar_con_timer_actualizar_precio(self, cod_prod: str, segundos: int) -> None:
+        if segundos <= 0:
+            return
+
+        print(f"[{cod_prod}] Esperando {segundos}s antes de actualizar precio...")
+        for restante in range(segundos, 0, -1):
+            print(f"[{cod_prod}] actualizar_precio en {restante}s")
+            await asyncio.sleep(1)
 
     def _extraer_lista_strings(self, datos: list, campo: str) -> List[str]:
         if not datos:
@@ -68,23 +79,44 @@ class AvaxClient:
             return [item.get(campo) for item in datos if item.get(campo)]
         return datos
 
+    def _debe_agregar_categoria_liquidacion(
+        self,
+        id_esq_costo: str,
+        id_descuento: str,
+    ) -> bool:
+        if id_descuento == "LIQUIDACION":
+            return True
+        return (
+            id_esq_costo in self.ESQ_COSTO_LIQUIDACION
+            and id_descuento in self.DESCUENTOS_PUSH
+        )
+
+    def _debe_actualizar_ult_descuento_automatico(
+        self,
+        esq_costo_actual: str,
+        esq_costo_final: str,
+    ) -> bool:
+        return (
+            esq_costo_actual != esq_costo_final
+            and esq_costo_final in self.ESQ_COSTO_LIQUIDACION
+        )
+
     def _gestionar_categoria_liquidacion(
         self,
         categorias_actuales: List[str],
         id_esq_costo: str,
-        id_descuento: str
+        id_descuento: str,
     ) -> tuple[List[str], bool]:
         categorias = categorias_actuales.copy()
         categoria_agregada_ahora = False
-        
-        # Si el producto va a LIQUIDACION y NO tiene la categoría, agregarla
-        if id_descuento == "LIQUIDACION" and self.CATEGORIA_LIQUIDACION not in categorias:
+
+        if self._debe_agregar_categoria_liquidacion(id_esq_costo, id_descuento) and (
+            self.CATEGORIA_LIQUIDACION not in categorias
+        ):
             categorias.append(self.CATEGORIA_LIQUIDACION)
             categoria_agregada_ahora = True
-        
-        # IMPORTANTE: Si ya tiene la categoría Liquidacion, MANTENERLA
-        # No hacemos nada más, la categoría se queda
-        
+
+        # Si ya tiene la categoria Liquidacion, mantenerla.
         return categorias, categoria_agregada_ahora
 
     async def actualizar_descuento(
@@ -116,12 +148,15 @@ class AvaxClient:
             producto.get("categorias", []), "id_categoria"
         )
 
-        # 4. Gestionar categoría Liquidacion (NUEVA LÓGICA)
+        # 4. Gestionar categoria Liquidacion
         categorias_nuevas, categoria_agregada = self._gestionar_categoria_liquidacion(
             categorias_actuales, esq_costo_final, nuevo_descuento
         )
 
-        # 5.  Payload completo para PATCH 
+        # 5. Payload completo para PATCH
+        actualizar_ult_descuento = self._debe_actualizar_ult_descuento_automatico(
+            esq_costo_actual, esq_costo_final
+        )
         payload = {
             "nombre": producto.get("nombre"),
             "id_marca": producto.get("id_marca"),
@@ -139,8 +174,10 @@ class AvaxClient:
             "ids_conjunto_categoria": conjunto_cats,
             "ids_silueta": siluetas,
             "descuentos_automaticos": producto.get("descuentos_automaticos"),
-            "ult_actualizacion_descuento_automatico": date.today().isoformat()
         }
+        if actualizar_ult_descuento:
+            # Solo se toca esta fecha cuando se cambia a esquema LIQ.
+            payload["ult_actualizacion_descuento_automatico"] = date.today().isoformat()
 
         # 6. Enviar PATCH al producto
         url = f"{self.base_url}/empleados/productos/{cod_prod}"
@@ -150,25 +187,27 @@ class AvaxClient:
                 url,
                 json=payload,
                 headers={"token": self.settings.AVAX_TOKEN},
-                timeout=30.0
+                timeout=30.0,
             )
             response.raise_for_status()
             result = response.json()
 
-        # 7. Actualizar categorías 
+        # 7. Actualizar categorias
         if categorias_nuevas != categorias_actuales:
             await self.actualizar_categorias(cod_prod, categorias_nuevas)
 
-        # 8. Si cambió id_esq_costo, gatillar actualización de precios
+        # 8. Si cambio id_esq_costo, gatillar actualizacion de precios
         if nuevo_esq_costo and nuevo_esq_costo != esq_costo_actual:
-            await asyncio.sleep(self.settings.REQUEST_DELAY)
+            await self._esperar_con_timer_actualizar_precio(
+                cod_prod, self.settings.REQUEST_DELAY
+            )
             await self.actualizar_precio(cod_prod)
 
         # 9. Retornar resultado con info adicional
         return {
             "response": result,
             "categoria_liquidacion_agregada": categoria_agregada,
-            "categorias_finales": categorias_nuevas
+            "categorias_finales": categorias_nuevas,
         }
 
 

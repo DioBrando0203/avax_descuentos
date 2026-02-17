@@ -159,6 +159,14 @@ class DescuentosService:
         cumple_ruta2 = DescuentosService.debe_subir_descuento_normal(
             producto_zap, config_estado, ult_actualizacion
         )
+
+        # Si el producto ya esta en esquema LIQ y no cumple last_import (ruta 1),
+        # no debe seguir avanzando por ruta 2.
+        if id_esq_costo_actual in ["LIQ_20M", "LIQ_30M"] and not cumple_ruta1:
+            resultado["razon"] = "no_cumple_condiciones"
+            resultado["ruta_usada"] = "ruta2_bloqueada_liq_por_last_import"
+            return resultado
+
         if not cumple_ruta1 and not cumple_ruta2:
             resultado["razon"] = "no_cumple_condiciones"
             resultado["ruta_usada"] = "ninguna"
@@ -170,12 +178,15 @@ class DescuentosService:
         )
         esq_costo_final = nuevo_esq_costo or id_esq_costo_actual
         descuento_minimo = DescuentosService.obtener_descuento_minimo(estado_logica)
+        estaba_en_esq_liq = id_esq_costo_actual in ["LIQ_20M", "LIQ_30M"]
+        queda_en_esq_liq = esq_costo_final in ["LIQ_20M", "LIQ_30M"]
+        entra_a_esq_liq = queda_en_esq_liq and not estaba_en_esq_liq
 
-        if ruta_usada == "ruta1_last_import" and esq_costo_final in ["LIQ_20M", "LIQ_30M"]:
-            # Ruta 1: si entra a esquema LIQ, el descuento siempre queda en PUSH1.
+        if ruta_usada == "ruta1_last_import" and entra_a_esq_liq:
+            # Si recien entra a esquema LIQ desde DA/NDA, siempre arranca en PUSH1.
             nuevo_descuento = "PUSH1"
         else:
-            # Ruta 2: mantener progresion normal del descuento paso a paso.
+            # Mantener progresion normal del descuento paso a paso.
             nuevo_descuento = DescuentosService.obtener_siguiente_nivel(id_descuento_actual)
             if id_descuento_actual == "Sin descuento" and descuento_minimo == "PUSH1":
                 nuevo_descuento = "PUSH1"
@@ -183,6 +194,14 @@ class DescuentosService:
         if not DescuentosService.validar_regla_liquidacion(esq_costo_final, nuevo_descuento):
             resultado["razon"] = "viola_regla_liquidacion"
             return resultado
+
+        if (
+            nuevo_descuento == id_descuento_actual
+            and esq_costo_final == id_esq_costo_actual
+        ):
+            resultado["razon"] = "sin_cambios"
+            return resultado
+
         resultado["debe_actualizar"] = True
         resultado["nuevo_descuento"] = nuevo_descuento
         resultado["nuevo_esq_costo"] = nuevo_esq_costo

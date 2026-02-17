@@ -85,6 +85,16 @@ async def procesar_producto_con_contexto(
             cod_prod, estado_activo, evaluacion, config_estado, producto_avax
         )
 
+    if evaluacion["razon"] == "sin_cambios":
+        return armar_resp_no_apto(
+            cod_prod,
+            estado_activo,
+            evaluacion,
+            config_estado,
+            producto_avax,
+            mensaje="No hay cambios para aplicar",
+        )
+
     if evaluacion["razon"] == "viola_regla_liquidacion":
         return armar_resp_error_validacion(
             cod_prod, estado_activo, evaluacion, config_estado, producto_avax

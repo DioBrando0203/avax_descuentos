@@ -10,7 +10,7 @@ class ZapClient:
     async def get_product_churn(self) -> list[dict]:
         # Rango de 2 días 
         today = datetime.now()
-        yesterday = (today - timedelta(days=1)).strftime("%Y-%m-%d")
+        yesterday = (today - timedelta(days=10)).strftime("%Y-%m-%d")
         today_str = today.strftime("%Y-%m-%d")
 
         url = f"{self.base_url}/kpi/product-churn"

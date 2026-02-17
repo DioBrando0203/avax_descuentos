@@ -60,6 +60,7 @@ def armar_resp_no_apto(
     evaluacion: dict,
     config_estado: ConfigEstadoLogica,
     producto_avax: dict,
+    mensaje: str = "No cumple condiciones para subir descuento",
 ) -> RespNoApto:
     return RespNoApto(
         cod_prod=cod_prod,
@@ -79,7 +80,7 @@ def armar_resp_no_apto(
             descuentos_automaticos=producto_avax.get("descuentos_automaticos"),
             esq_costo_actual=evaluacion["id_esq_costo_actual"],
         ),
-        mensaje="No cumple condiciones para subir descuento",
+        mensaje=mensaje,
     )
 
 
