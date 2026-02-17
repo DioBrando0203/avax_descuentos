@@ -95,11 +95,19 @@ class AvaxClient:
         self,
         esq_costo_actual: str,
         esq_costo_final: str,
+        descuento_actual: str,
+        descuento_final: str,
     ) -> bool:
-        return (
+        cambio_a_esq_liq = (
             esq_costo_actual != esq_costo_final
             and esq_costo_final in self.ESQ_COSTO_LIQUIDACION
         )
+        descuentos_objetivo = self.DESCUENTOS_PUSH | {"LIQUIDACION"}
+        cambio_descuento_objetivo = (
+            descuento_actual != descuento_final
+            and descuento_final in descuentos_objetivo
+        )
+        return cambio_a_esq_liq or cambio_descuento_objetivo
 
     def _gestionar_categoria_liquidacion(
         self,
@@ -129,6 +137,7 @@ class AvaxClient:
         # 1. Obtener producto actual (si no nos lo pasaron)
         producto = producto_actual or await self.get_producto(cod_prod)
         esq_costo_actual = producto.get("id_esq_costo")
+        descuento_actual = producto.get("id_descuento")
 
         # 2. Determinar nuevo esq_costo
         esq_costo_final = nuevo_esq_costo or esq_costo_actual
@@ -155,7 +164,10 @@ class AvaxClient:
 
         # 5. Payload completo para PATCH
         actualizar_ult_descuento = self._debe_actualizar_ult_descuento_automatico(
-            esq_costo_actual, esq_costo_final
+            esq_costo_actual,
+            esq_costo_final,
+            descuento_actual,
+            nuevo_descuento,
         )
         payload = {
             "nombre": producto.get("nombre"),
@@ -176,7 +188,7 @@ class AvaxClient:
             "descuentos_automaticos": producto.get("descuentos_automaticos"),
         }
         if actualizar_ult_descuento:
-            # Solo se toca esta fecha cuando se cambia a esquema LIQ.
+            # Se toca fecha si cambia a esquema LIQ o si cambia descuento a PUSH/LIQUIDACION.
             payload["ult_actualizacion_descuento_automatico"] = date.today().isoformat()
 
         # 6. Enviar PATCH al producto
