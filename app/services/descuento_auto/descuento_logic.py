@@ -41,10 +41,17 @@ class DescuentosService:
     def debe_subir_descuento_last_import(
         producto: dict,
         config: ConfigEstadoLogica,
-        _ult_actualizacion_descuento: date = None,
+        ult_actualizacion_descuento: date = None,
     ) -> bool:
         last_import_age = producto.get("last_import_age_max", 0) or 0
-        return last_import_age > config.last_import_age_max
+        cumple_last_import = last_import_age > config.last_import_age_max
+        if not cumple_last_import:
+            return False
+
+        # Ruta 1 tambien exige filtros de fechas (igual que ruta 2).
+        return DescuentosService.debe_subir_descuento_normal(
+            producto, config, ult_actualizacion_descuento
+        )
 
     @staticmethod
     def debe_subir_descuento_normal(
@@ -164,7 +171,7 @@ class DescuentosService:
         # no debe seguir avanzando por ruta 2.
         if id_esq_costo_actual in ["LIQ_20M", "LIQ_30M"] and not cumple_ruta1:
             resultado["razon"] = "no_cumple_condiciones"
-            resultado["ruta_usada"] = "ruta2_bloqueada_liq_por_last_import"
+            resultado["ruta_usada"] = "ninguna_ruta_apta"
             return resultado
 
         if not cumple_ruta1 and not cumple_ruta2:
